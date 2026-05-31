@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fortran Array Bounds Checker — Flang Semantic Pass Visualizer</title>
+    <meta name="description"
+        content="Interactive Flang semantic analysis visualizer showing parse tree, symbol table, constant propagation and diagnostics for Fortran array bounds checking.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body data-theme="light-alabaster">
+    <!-- Animated particle grid canvas background -->
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="header-logo-section">
+                <div class="header-icon">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5"
+                        fill="none">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                </div>
+                <div class="header-titles">
+                    <h1>Fortan</h1>
+                </div>
+            </div>
+            <div class="header-controls">
+                <!-- Premium theme selector -->
+                <div class="theme-select-container">
+                    <button class="theme-dot active" data-theme="light-alabaster" title="White Alabaster"
+                        style="background: #e2e8f0; border: 2px solid #6366f1;"></button>
+                    <button class="theme-dot" data-theme="light-sakura" title="Sakura Quartz"
+                        style="background: #ffe4e6; border: 2px solid #db2777;"></button>
+                    <button class="theme-dot" data-theme="light-mint" title="Mint Obsidian"
+                        style="background: #ecfdf5; border: 2px solid #059669;"></button>
+                    <button class="theme-dot" data-theme="light-sol" title="Sol Amber"
+                        style="background: #fffbeb; border: 2px solid #d97706;"></button>
+                </div>
+                <div id="backend-status" class="status-badge offline">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Backend Offline</span>
+                </div>
+                <a class="docs-btn" href="https://github.com/llvm/llvm-project/tree/main/flang" target="_blank"
+                    rel="noopener">Flang Docs ↗</a>
+            </div>
+        </header>
+
+        <!-- MAIN: editor left + visualizer right -->
+        <main class="app-main workspace-layout">
+            <!-- COLUMN 1: SIDEBAR EXPLORER & COMPILER SETTINGS -->
+            <aside class="sidebar-panel">
+                <!-- Folder Explorer -->
+                <div class="sidebar-section file-explorer">
+                    <div class="section-title">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5"
+                            fill="none">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
+                            </path>
+                        </svg>
+                        <h3>Workspace</h3>
+                    </div>
+                    <div class="project-tree">
+                        <div class="folder-node">
+                            <span class="folder-toggle">▼</span>
+                            <span class="folder-icon">📁</span>
+                            <span class="folder-name">testcases</span>
+                        </div>
+                        <ul class="file-list" id="explorer-file-list">
+                            <li class="file-item active" data-test="boundary_violation_literals">
+                                <span class="file-icon">📄</span>
+                                <span class="file-name">literals_oob.f90</span>
+                            </li>
+                            <li class="file-item" data-test="dynamic_subscript_analysis">
+                                <span class="file-icon">📄</span>
+                                <span class="file-name">dynamic_indices.f90</span>
+                            </li>
+                            <li class="file-item" data-test="verified_safe_accesses">
+                                <span class="file-icon">📄</span>
+                                <span class="file-name">safe_usage.f90</span>
+                            </li>
+                            <li class="file-item" data-test="hybrid_index_validation">
+                                <span class="file-icon">📄</span>
+                                <span class="file-name">hybrid_check.f90</span>
+                            </li>
+                            <li class="file-item" data-test="compile_time_expression_check">
+                                <span class="file-icon">📄</span>
+                                <span class="file-name">folded_consts.f90</span>
+                            </li>
+                            <li class="file-item" data-test="custom">
+                                <span class="file-icon">✏️</span>
+                                <span class="file-name">custom_code.f90</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Compiler Options -->
+                <div class="sidebar-section compiler-options">
+                    <div class="section-title">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5"
+                            fill="none">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path
+                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z">
+                            </path>
+                        </svg>
+                        <h3>Build Settings</h3>
+                    </div>
+                    <div class="options-group">
+                        <label class="opt-label">Fortran Dialect</label>
+                        <select class="opt-select" id="dialect-select">
+                            <option value="f95" selected>Fortran 95 (Standard)</option>
+                            <option value="f90">Fortran 90</option>
+                            <option value="f2003">Fortran 2003</option>
+                            <option value="f2008">Fortran 2008</option>
+                        </select>
+                    </div>
+                    <div class="options-group">
+                        <label class="opt-label">Optimization Level</label>
+                        <div class="opt-toggles">
+                            <button class="opt-toggle active" data-opt="O0">-O0</button>
+                            <button class="opt-toggle" data-opt="O2">-O2</button>
+                            <button class="opt-toggle" data-opt="O3">-O3</button>
+                        </div>
+                    </div>
+                    <div class="options-group">
+                        <label class="opt-checkbox-container">
+                            <input type="checkbox" id="check-warnings" checked>
+                            <span class="chk-text">Verify Variable Indices</span>
+                        </label>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- COLUMN 2: MAIN EDITOR & PROBLEMS PANEL -->
+            <section class="panel editor-panel center-workspace-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5"
+                            fill="none">
+                            <polyline points="16 18 22 12 16 6" />
+                            <polyline points="8 6 2 12 8 18" />
+                        </svg>
+                        <h2>Fortran Source</h2>
+                    </div>
+                    <div class="active-tab-file">
+                        <span class="tab-bullet"></span>
+                        <span id="active-file-label">literals_oob.f90</span>
+                    </div>
+                </div>
+
+                <div class="editor-container">
+                    <div class="editor-gutter" id="editor-gutter"></div>
+                    <div class="editor-textarea-wrapper">
+                        <textarea id="code-input" spellcheck="false"
+                            placeholder="! Enter Fortran code here..."></textarea>
+                        <pre class="editor-highlight" id="editor-highlight"><code id="highlight-content"></code></pre>
+                    </div>
+                </div>
+
+                <div class="editor-actions">
+                    <button id="btn-simulate" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.5"
+                            fill="none">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                        </svg>
+                        Compile &amp; Analyze
+                    </button>
+                    <button id="btn-run-live" class="btn btn-secondary">
+                        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.5"
+                            fill="none">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                            <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                        Run Live Plugin
+                    </button>
+                    <button id="btn-clear" class="btn btn-tertiary">Reset</button>
+                </div>
+
+                <!-- Problems / Terminal Console Tabs -->
+                <div class="console-tab-container">
+                    <div class="console-headers">
+                        <button class="console-tab active" data-console="problems" id="tab-problems">
+                            ⚠️ Problems <span class="problem-count-badge" id="problem-count">0</span>
+                        </button>
+                        <button class="console-tab" data-console="output" id="tab-output">
+                            🖨️ Terminal Output
+                        </button>
+                    </div>
+                    <div class="console-bodies">
+                        <!-- Problems Tab Panel -->
+                        <div class="console-body-panel active" id="panel-problems">
+                            <div class="problems-empty-state" id="problems-empty">
+                                <p>No issues compiled. Click <strong>Compile & Analyze</strong> to verify bounds.</p>
+                            </div>
+                            <div class="problems-table-wrapper" id="problems-table-wrapper" style="display: none;">
+                                <table class="problems-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Line</th>
+                                            <th>Type</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="problems-table-body">
+                                        <!-- JavaScript Populated -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Terminal Tab Panel -->
+                        <div class="console-body-panel" id="panel-output" style="display: none;">
+                            <div class="terminal-container">
+                                <div class="terminal-body-wrapper">
+                                    <pre class="terminal-body"
+                                        id="terminal-output">Ready. Press "Compile &amp; Analyze" or "Run Live Plugin"…</pre>
+                                    <div class="terminal-crt-overlay"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- COLUMN 3: VISUALIZER -->
+            <section class="panel visualizer-panel">
+                <!-- PHASE TABS -->
+                <div class="panel-header viz-header">
+                    <div class="panel-title">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2"
+                            fill="none">
+                            <line x1="18" y1="20" x2="18" y2="10" />
+                            <line x1="12" y1="20" x2="12" y2="4" />
+                            <line x1="6" y1="20" x2="6" y2="14" />
+                        </svg>
+                        <h2>Pipeline Visualizer</h2>
+                    </div>
+                    <div class="phase-tabs" id="phase-tabs">
+                        <button class="phase-tab active" data-phase="parse">🌳 Parse Tree</button>
+                        <button class="phase-tab" data-phase="symbols">📋 Symbols</button>
+                        <button class="phase-tab" data-phase="intercept">🎯 Intercept</button>
+                        <button class="phase-tab" data-phase="propagate">⚡ Propagate</button>
+                        <button class="phase-tab" data-phase="diag">🔴 Diagnostics</button>
+                        <button class="phase-tab" data-phase="comparison">📊 Flang vs gfortran</button>
+                    </div>
+                </div>
+
+                <!-- FLANG PIPELINE MINI-FLOWCHART -->
+                <div class="flang-flowchart-container">
+                    <div class="flowchart-step active" id="flow-parse">
+                        <div class="flow-icon"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
+                                stroke-width="2" fill="none">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                            </svg></div>
+                        <div class="flow-text"><span class="flow-label">Parse Tree</span><span class="flow-sub">AST
+                                Build</span></div>
+                    </div>
+                    <div class="flow-connector" id="conn-1">→</div>
+                    <div class="flowchart-step" id="flow-symbol">
+                        <div class="flow-icon"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
+                                stroke-width="2" fill="none">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                <line x1="9" y1="3" x2="9" y2="21" />
+                                <line x1="3" y1="9" x2="21" y2="9" />
+                            </svg></div>
+                        <div class="flow-text"><span class="flow-label">Symbols (a)</span><span class="flow-sub">Collect
+                                Bounds</span></div>
+                    </div>
+                    <div class="flow-connector" id="conn-2">→</div>
+                    <div class="flowchart-step" id="flow-intercept">
+                        <div class="flow-icon"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
+                                stroke-width="2" fill="none">
+                                <circle cx="12" cy="12" r="3" />
+                                <path
+                                    d="M12 2v4M12 18v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M2 12h4M18 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
+                            </svg></div>
+                        <div class="flow-text"><span class="flow-label">Intercept (b)</span><span
+                                class="flow-sub">Subscripts</span></div>
+                    </div>
+                    <div class="flow-connector" id="conn-3">→</div>
+                    <div class="flowchart-step" id="flow-folding">
+                        <div class="flow-icon"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
+                                stroke-width="2" fill="none">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="8" x2="12" y2="16" />
+                                <line x1="8" y1="12" x2="16" y2="12" />
+                            </svg></div>
+                        <div class="flow-text"><span class="flow-label">Propagate (c)</span><span class="flow-sub">Fold
+                                Constants</span></div>
+                    </div>
+                    <div class="flow-connector" id="conn-4">→</div>
+                    <div class="flowchart-step" id="flow-diagnostic">
+                        <div class="flow-icon"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
+                                stroke-width="2" fill="none">
+                                <path
+                                    d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                            </svg></div>
+                        <div class="flow-text"><span class="flow-label">Emit (d)</span><span
+                                class="flow-sub">Diagnostics</span></div>
+                    </div>
+                </div>
+
+                <!-- PHASE CONTENT PANELS -->
+                <div class="pipeline-viewports">
+
+                    <!-- ── PARSE TREE ── -->
+                    <div class="pipeline-section active" id="sec-parse">
+                        <div class="section-meta">
+                            <h3>Flang Parse Tree — Abstract Syntax Tree (AST)</h3>
+                            <span class="desc">Flang parses Fortran source into a typed parse tree. Each node
+                                corresponds to a grammar rule. The bounds checker hooks into this tree during semantic
+                                analysis.</span>
+                        </div>
+                        <div class="parse-tree-toolbar">
+                            <button class="tree-btn" id="btn-expand-all">Expand All</button>
+                            <button class="tree-btn" id="btn-collapse-all">Collapse All</button>
+                            <div class="tree-legend">
+                                <span class="legend-item"><span class="leg-dot prog"></span>Program</span>
+                                <span class="legend-item"><span class="leg-dot decl"></span>Declaration</span>
+                                <span class="legend-item"><span class="leg-dot access"></span>Array Access</span>
+                                <span class="legend-item"><span class="leg-dot oob"></span>OOB Error</span>
+                                <span class="legend-item"><span class="leg-dot warn"></span>Warning</span>
+                            </div>
+                        </div>
+                        <div class="parse-tree-wrapper" id="parse-tree-wrapper">
+                            <!-- Floating Zoom Controls -->
+                            <div class="zoom-controls">
+                                <button class="zoom-btn" id="btn-zoom-in" title="Zoom In">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
+                                        stroke-width="2.5" fill="none">
+                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                </button>
+                                <button class="zoom-btn" id="btn-zoom-out" title="Zoom Out">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
+                                        stroke-width="2.5" fill="none">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                </button>
+                                <button class="zoom-btn" id="btn-zoom-reset" title="Reset View">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
+                                        stroke-width="2.5" fill="none">
+                                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                                    </svg>
+                                </button>
+                                <button class="zoom-btn" id="btn-fullscreen" title="Toggle Fullscreen">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
+                                        stroke-width="2.5" fill="none">
+                                        <path
+                                            d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3">
+                                        </path>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div class="tree-empty-state" id="tree-empty">
+                                <svg viewBox="0 0 64 64" width="48" height="48" stroke="currentColor" stroke-width="1.5"
+                                    fill="none" opacity="0.3">
+                                    <circle cx="32" cy="12" r="8" />
+                                    <circle cx="12" cy="44" r="8" />
+                                    <circle cx="32" cy="44" r="8" />
+                                    <circle cx="52" cy="44" r="8" />
+                                    <line x1="32" y1="20" x2="12" y2="36" />
+                                    <line x1="32" y1="20" x2="32" y2="36" />
+                                    <line x1="32" y1="20" x2="52" y2="36" />
+                                </svg>
+                                <p>Click <strong>Simulate Pass</strong> to build the parse tree</p>
+                            </div>
+                            <svg id="parse-tree-svg" class="parse-tree-svg" style="display:none;"></svg>
+                        </div>
+                    </div>
+
+                    <!-- ── SYMBOL TABLE ── -->
+                    <div class="pipeline-section" id="sec-symbols">
+                        <div class="section-meta">
+                            <h3>Phase 1: Symbol Table Construction (Objective a)</h3>
+                            <span class="desc">Walks Flang's <code>ObjectEntityDetails</code> to extract array shape
+                                specs — each dimension's lower and upper bounds.</span>
+                        </div>
+                        <div class="symbol-table-wrapper">
+                            <table class="symbol-table" id="symbol-table">
+                                <thead>
+                                    <tr>
+                                        <th>Array</th>
+                                        <th>Dims</th>
+                                        <th>Lower</th>
+                                        <th>Upper</th>
+                                        <th>Line</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="symbol-table-body">
+                                    <tr>
+                                        <td colspan="5" class="empty-state">Run analysis to populate.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ── INTERCEPT ── -->
+                    <div class="pipeline-section" id="sec-intercept">
+                        <div class="section-meta">
+                            <h3>Phase 2: Subscript Interception (Objective b)</h3>
+                            <span class="desc">Flang's <code>CheckHelper::Enter(ArrayElement&amp;)</code> fires for
+                                every array access. The checker captures subscript tokens for evaluation.</span>
+                        </div>
+                        <div class="accesses-grid" id="accesses-grid-p2">
+                            <div class="empty-state">No array subscripts intercepted yet.</div>
+                        </div>
+                    </div>
+
+                    <!-- ── PROPAGATE ── -->
+                    <div class="pipeline-section" id="sec-propagate">
+                        <div class="section-meta">
+                            <h3>Phase 3: Constant Propagation (Objective c)</h3>
+                            <span class="desc">Each subscript is walked as an <code>Expr</code> variant. Integer
+                                literals fold immediately; binary ops like <code>5+6</code> fold to <code>11</code>.
+                                Variables are flagged unresolved.</span>
+                        </div>
+                        <div class="accesses-grid" id="accesses-grid-p3">
+                            <div class="empty-state">No constant propagation steps completed yet.</div>
+                        </div>
+                    </div>
+
+                    <!-- ── DIAGNOSTICS ── -->
+                    <div class="pipeline-section" id="sec-diag">
+                        <div class="section-meta">
+                            <h3>Phase 4: Diagnostics Emission (Objective d)</h3>
+                            <span class="desc"><code>SemanticsContext::Say()</code> emits <strong>errors</strong> for
+                                provably out-of-bounds accesses and <strong>warnings</strong> when variable indices
+                                cannot be verified statically.</span>
+                        </div>
+
+                        <div class="diagnostics-summary">
+                            <div class="stat-card">
+                                <div class="stat-num error-text" id="stat-errors">0</div>
+                                <div class="stat-label">Errors (OOB)</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-num warning-text" id="stat-warnings">0</div>
+                                <div class="stat-label">Warnings (Var)</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-num safe-text" id="stat-safe">0</div>
+                                <div class="stat-label">Verified Safe</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-num rate-text" id="stat-rate">0%</div>
+                                <div class="stat-label">Catch Rate</div>
+                            </div>
+                        </div>
+
+                        <div class="diagnostics-info-card"
+                            style="margin-top: 14px; padding: 14px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--r-sm);">
+                            <h4
+                                style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; margin-bottom: 6px;">
+                                Semantic Validation Analysis</h4>
+                            <p style="font-size: 0.76rem; color: var(--text-secondary); line-height: 1.5;">During this
+                                final compiler pass, Flang's semantic diagnostics emit compile-time errors or warnings
+                                directly. Absolute violations (OOB errors) halt compilation, while unresolved variable
+                                subscripts emit warnings to advise additional runtime bounds verification.</p>
+                        </div>
+                    </div>
+
+                    <!-- ── FLANG PLUGIN vs GFORTRAN COMPARISON ── -->
+                    <div class="pipeline-section" id="sec-comparison">
+                        <div class="section-meta">
+                            <h3>📊 Flang Bounds-Checker Plugin vs gfortran <code>-fbounds-check</code></h3>
+                            <span class="desc">Both tools work on <strong>Fortran</strong> source. The key difference:
+                                Flang's plugin catches violations <strong>at compile time</strong> (zero runtime cost),
+                                while gfortran inserts <strong>runtime guards</strong> that fire when the program
+                                executes.</span>
+                        </div>
+
+                        <div class="comparison-grid">
+                            <!-- Key Comparison Matrix -->
+                            <div class="comparison-card comp-table-card">
+                                <h4>Fortran Bounds-Checking Strategy Comparison</h4>
+                                <div class="comp-table-wrapper">
+                                    <table class="comp-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Feature</th>
+                                                <th>Flang Plugin (This Project)</th>
+                                                <th>gfortran <code>-fbounds-check</code></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>When it catches OOB</strong></td>
+                                                <td class="fortran-col">🕐 Compile time — before the program runs</td>
+                                                <td class="clang-col">⚡ Runtime — when the bad access actually executes
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Mechanism</strong></td>
+                                                <td class="fortran-col">Hooks into Flang semantic pass via
+                                                    <code>CheckHelper::Enter(ArrayElement&amp;)</code>
+                                                </td>
+                                                <td class="clang-col">Inserts branch + trap instructions around every
+                                                    array subscript in the binary</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Constant index (e.g. A(11))</strong></td>
+                                                <td class="fortran-col">✅ <strong>Error</strong> — folded and checked at
+                                                    compile time</td>
+                                                <td class="clang-col">✅ Caught at runtime (wastes a branch that could
+                                                    have been compile-time)</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Variable index (e.g. A(i))</strong></td>
+                                                <td class="fortran-col">⚠️ <strong>Warning</strong> — cannot verify
+                                                    statically</td>
+                                                <td class="clang-col">✅ Checked at runtime (with overhead per access)
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Constant expression (e.g. A(5+6))</strong></td>
+                                                <td class="fortran-col">✅ Folds <code>5+6 → 11</code>, emits
+                                                    <strong>Error</strong> at compile time
+                                                </td>
+                                                <td class="clang-col">✅ Caught at runtime after fold</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Arbitrary bounds (e.g. B(-5:5))</strong></td>
+                                                <td class="fortran-col">✅ Fully supported — lower/upper both checked
+                                                </td>
+                                                <td class="clang-col">✅ Fully supported at runtime</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Runtime performance overhead</strong></td>
+                                                <td class="fortran-col">🟢 <strong>Zero</strong> — all analysis at
+                                                    compile time</td>
+                                                <td class="clang-col">🔴 Significant — every access pays a branch cost
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Report format</strong></td>
+                                                <td class="fortran-col"><code>error:</code> / <code>warning:</code> in
+                                                    compiler output</td>
+                                                <td class="clang-col">
+                                                    <code>Fortran runtime error: Array bound mismatch</code> on stderr
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Side-by-side code for selected access -->
+                            <div class="comparison-card comp-translation-card">
+                                <h4>Per-Access Analysis: Flang Plugin vs gfortran Guard</h4>
+                                <p class="comp-help">Select an intercepted array access to see how each tool handles it
+                                    for the same Fortran source:</p>
+                                <div class="comp-select-wrapper">
+                                    <select id="comp-access-select" class="comp-select">
+                                        <option value="">Run simulation first...</option>
+                                    </select>
+                                </div>
+
+                                <div class="comp-panels-side">
+                                    <!-- Flang Plugin side -->
+                                    <div class="comp-side">
+                                        <h5>🔵 Flang Plugin — Compile-Time Check</h5>
+                                        <div class="comp-code-bubble fortran-bubble">
+                                            <code id="comp-flang-code">REAL A(10)
+A(0) = 99.0
+! flang: error: index 0 &lt; lbound 1</code>
+                                        </div>
+                                        <div class="mini-ast-wrapper">
+                                            <h6>Flang AST: ArrayElement node</h6>
+                                            <svg id="flang-mini-ast" class="mini-ast-svg"></svg>
+                                        </div>
+                                    </div>
+
+                                    <!-- gfortran side -->
+                                    <div class="comp-side">
+                                        <h5>🟠 gfortran -fbounds-check — Runtime Guard</h5>
+                                        <div class="comp-code-bubble clang-bubble">
+                                            <code id="comp-clang-code">REAL A(10)
+A(0) = 99.0
+! At runtime:
+! Fortran runtime error:
+!  Array bound mismatch</code>
+                                        </div>
+                                        <div class="mini-ast-wrapper">
+                                            <h6>gfortran: Runtime guard inserted</h6>
+                                            <svg id="clang-mini-ast" class="mini-ast-svg"></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /pipeline-viewports -->
+            </section>
+        </main>
+    </div>
+
+    <!-- Simulation status banner -->
+    <div id="sim-status-banner" class="sim-status-banner hidden">
+        <div class="banner-spinner"></div>
+        <span id="sim-banner-text">Simulating…</span>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
