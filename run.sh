@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Ensure build binary exists
-if [ ! -f "./bounds-checker" ]; then
-    echo "Compiled binary ./bounds-checker not found. Running build.sh first..."
+if [ ! -f "./bounds-checker.exe" ]; then
+    echo "Compiled binary ./bounds-checker.exe not found. Running build.sh first..."
     ./build.sh
 fi
 
@@ -13,19 +13,19 @@ if [ $# -eq 0 ]; then
     echo ""
     
     echo "=== Running Test 1: Constant OOB ==="
-    ./bounds-checker testcases/boundary_violation_literals.f90 --stats
+    ./bounds-checker.exe testcases/boundary_violation_literals.f90 --stats
     echo ""
     
     echo "=== Running Test 2: Variable Indices (Warnings) ==="
-    ./bounds-checker testcases/dynamic_subscript_analysis.f90 --stats
+    ./bounds-checker.exe testcases/dynamic_subscript_analysis.f90 --stats
     echo ""
     
     echo "=== Running Test 3: Correct Usage (Clean) ==="
-    ./bounds-checker testcases/verified_safe_accesses.f90 --stats
+    ./bounds-checker.exe testcases/verified_safe_accesses.f90 --stats
     echo ""
     
     echo "=== Running Test 5: Constant Expressions ==="
-    ./bounds-checker testcases/compile_time_expression_check.f90 --stats
+    ./bounds-checker.exe testcases/compile_time_expression_check.f90 --stats
 else
-    ./bounds-checker "$@"
+    ./bounds-checker.exe "$@"
 fi

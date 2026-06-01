@@ -51,25 +51,75 @@ http://localhost:3000
 
 ### Command-Line Analyzer
 
+## Build and Run
+
+### Prerequisites
+
+Install MSYS2 and GCC:
+
+```bash
+pacman -Syu
+pacman -S mingw-w64-ucrt-x86_64-gcc
+```
+
+Verify installation:
+
+```bash
+g++ --version
+```
+
+### Build the Analyzer
+
+Navigate to the project directory:
+
+```bash
+cd "/c/Users/<username>/Downloads/fortan array bounds checker using flang"
+```
+
 Compile the analyzer:
 
 ```bash
 ./build.sh
 ```
 
-Analyze an individual source file:
+### Analyze a Single Source File
+
+```bash
+./bounds-checker.exe testcases/boundary_violation_literals.f90
+```
+
+or
 
 ```bash
 ./run.sh testcases/boundary_violation_literals.f90
 ```
 
-Execute the complete validation suite:
+### Run the Complete Validation Suite
 
 ```bash
 ./run.sh
 ```
 
----
+### Manual Compilation
+
+If build.sh is unavailable, compile directly:
+
+```bash
+g++ -std=c++17 -O2 src/main_standalone.cpp -o bounds-checker.exe
+```
+
+### Example Commands
+
+```bash
+./bounds-checker.exe testcases/boundary_violation_literals.f90 --stats
+
+./bounds-checker.exe testcases/dynamic_subscript_analysis.f90 --stats
+
+./bounds-checker.exe testcases/verified_safe_accesses.f90 --stats
+
+./bounds-checker.exe testcases/compile_time_expression_check.f90 --stats
+```
+
 
 ## Project Organization
 
